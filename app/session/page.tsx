@@ -9,61 +9,182 @@ import { ThinkingTimer } from "@/components/session/ThinkingTimer";
 import { RecorderPanel } from "@/components/session/RecorderPanel";
 import { AudioPlayback } from "@/components/session/AudioPlayback";
 import { TranscriptView } from "@/components/session/TranscriptView";
+import { FeedbackPanel } from "@/components/session/FeedbackPanel";
+import { DrillCard } from "@/components/session/DrillCard";
+import { ComparisonView } from "@/components/session/ComparisonView";
 import { getRandomPrompt } from "@/lib/prompts/seedPrompts";
+import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
+import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 
-type Stage = "thinking" | "recording" | "recorded" | "transcribing" | "done";
+type Stage =
+  | "thinking"
+  | "recording1"
+  | "recorded1"
+  | "transcribing1"
+  | "analyzing1"
+  | "feedback"
+  | "recording2"
+  | "recorded2"
+  | "transcribing2"
+  | "analyzing2"
+  | "comparing"
+  | "compared";
 
-const STEPS = ["Prompt", "Record", "Listen", "Transcript"];
+const STEPS = ["Prompt", "Record", "Listen", "Feedback", "Drill", "Record Again", "Compare"];
 
 const STAGE_TO_STEP_INDEX: Record<Stage, number> = {
   thinking: 0,
-  recording: 1,
-  recorded: 2,
-  transcribing: 3,
-  done: 3,
+  recording1: 1,
+  recorded1: 2,
+  transcribing1: 2,
+  analyzing1: 3,
+  feedback: 4,
+  recording2: 5,
+  recorded2: 5,
+  transcribing2: 5,
+  analyzing2: 6,
+  comparing: 6,
+  compared: 6,
 };
+
+interface AttemptState {
+  audioBlob: Blob | null;
+  audioUrl: string | null;
+  durationSeconds: number;
+  transcript: string | null;
+  analysis: SpeechAnalysis | null;
+}
+
+const EMPTY_ATTEMPT: AttemptState = {
+  audioBlob: null,
+  audioUrl: null,
+  durationSeconds: 0,
+  transcript: null,
+  analysis: null,
+};
+
+async function transcribeAudio(blob: Blob): Promise<string> {
+  const formData = new FormData();
+  formData.append("audio", blob, "recording.webm");
+  const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Transcription failed.");
+  return data.text;
+}
+
+async function analyzeTranscript(
+  transcript: string,
+  durationSeconds: number
+): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
+  const res = await fetch("/api/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, durationSeconds }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Analysis failed.");
+  return data;
+}
+
+async function compareAttempts(
+  attempt1: SpeechAnalysis,
+  attempt2: SpeechAnalysis,
+  promptText: string
+): Promise<ComparisonResult> {
+  const res = await fetch("/api/compare", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ attempt1, attempt2, promptText }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Comparison failed.");
+  return data.comparison;
+}
 
 export default function SessionPage() {
   const prompt = useMemo(() => getRandomPrompt(), []);
   const [stage, setStage] = useState<Stage>("thinking");
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [transcript, setTranscript] = useState<string | null>(null);
-  const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const [attempt1, setAttempt1] = useState<AttemptState>(EMPTY_ATTEMPT);
+  const [attempt2, setAttempt2] = useState<AttemptState>(EMPTY_ATTEMPT);
+  const [drill, setDrill] = useState<Drill | null>(null);
+  const [confirmedMeaning, setConfirmedMeaning] = useState<boolean | null>(null);
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const persistence = useSessionPersistence(prompt.id);
 
-  const handleRecorded = (blob: Blob, url: string) => {
-    setAudioBlob(blob);
-    setAudioUrl(url);
-    setStage("recorded");
-  };
-
-  const submitForTranscription = async () => {
-    if (!audioBlob) return;
-    setStage("transcribing");
-    setTranscribeError(null);
+  const runTranscribeAndAnalyze = async (
+    blob: Blob,
+    url: string,
+    durationSeconds: number,
+    attemptNumber: 1 | 2
+  ) => {
+    const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
+    setAttempt({ audioBlob: blob, audioUrl: url, durationSeconds, transcript: null, analysis: null });
+    setStage(attemptNumber === 1 ? "transcribing1" : "transcribing2");
+    setErrorMessage(null);
 
     try {
-      const formData = new FormData();
-      formData.append("audio", audioBlob, "recording.webm");
+      const transcript = await transcribeAudio(blob);
+      setAttempt((prev) => ({ ...prev, transcript }));
+      setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
+      const { analysis, drill: newDrill } = await analyzeTranscript(transcript, durationSeconds);
+      setAttempt((prev) => ({ ...prev, analysis }));
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Transcription failed.");
+      if (attemptNumber === 1) {
+        setDrill(newDrill);
+        setStage("feedback");
+        persistence.persistAttempt(1, { blob, durationSeconds, transcript, analysis }).then(() => {
+          persistence.persistDrill(newDrill);
+        });
+      } else {
+        setStage("comparing");
+        try {
+          const result = await compareAttempts(
+            attempt1.analysis as SpeechAnalysis,
+            analysis,
+            prompt.text
+          );
+          setComparison(result);
+          setStage("compared");
+          persistence.persistAttempt(2, { blob, durationSeconds, transcript, analysis }).then(() => {
+            persistence.persistComparisonAndComplete(result);
+          });
+        } catch (err) {
+          setErrorMessage(err instanceof Error ? err.message : "Comparison failed.");
+          setStage("recorded2");
+        }
       }
-
-      setTranscript(data.text);
-      setStage("done");
     } catch (err) {
-      setTranscribeError(
-        err instanceof Error ? err.message : "Transcription failed. Please try again."
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
+      setStage(attemptNumber === 1 ? "recorded1" : "recorded2");
+    }
+  };
+
+  const retryAnalysis = async (attemptNumber: 1 | 2) => {
+    const attempt = attemptNumber === 1 ? attempt1 : attempt2;
+    if (!attempt.transcript) return;
+    setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
+    setErrorMessage(null);
+    try {
+      const { analysis, drill: newDrill } = await analyzeTranscript(
+        attempt.transcript,
+        attempt.durationSeconds
       );
-      setStage("recorded");
+      const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
+      setAttempt((prev) => ({ ...prev, analysis }));
+      if (attemptNumber === 1) {
+        setDrill(newDrill);
+        setStage("feedback");
+      } else {
+        setStage("comparing");
+        const result = await compareAttempts(attempt1.analysis as SpeechAnalysis, analysis, prompt.text);
+        setComparison(result);
+        setStage("compared");
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
+      setStage(attemptNumber === 1 ? "recorded1" : "recorded2");
     }
   };
 
@@ -80,57 +201,180 @@ export default function SessionPage() {
         </p>
       </Card>
 
-      <Card>
-        {stage === "thinking" && (
-          <ThinkingTimer onDone={() => setStage("recording")} />
-        )}
+      {(stage === "thinking" ||
+        stage === "recording1" ||
+        stage === "recorded1" ||
+        stage === "transcribing1" ||
+        stage === "analyzing1") && (
+        <Card>
+          {stage === "thinking" && <ThinkingTimer onDone={() => setStage("recording1")} />}
 
-        {stage === "recording" && <RecorderPanel onRecorded={handleRecorded} />}
+          {stage === "recording1" && (
+            <RecorderPanel
+              onRecorded={(blob, url, seconds) =>
+                runTranscribeAndAnalyze(blob, url, seconds, 1)
+              }
+            />
+          )}
 
-        {stage === "recorded" && audioUrl && (
-          <div className="flex flex-col items-center gap-6">
-            <AudioPlayback audioUrl={audioUrl} />
-            {transcribeError && (
-              <p className="text-sm text-red-600 dark:text-red-400">{transcribeError}</p>
-            )}
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStage("recording")}>
-                Record again
-              </Button>
-              <Button onClick={submitForTranscription}>Submit for transcription</Button>
+          {stage === "recorded1" && attempt1.audioUrl && (
+            <div className="flex flex-col items-center gap-6">
+              <AudioPlayback audioUrl={attempt1.audioUrl} />
+              {errorMessage && (
+                <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+              )}
+              <div className="flex gap-3">
+                <Button variant="secondary" onClick={() => setStage("recording1")}>
+                  Record again
+                </Button>
+                <Button
+                  onClick={() =>
+                    attempt1.transcript
+                      ? retryAnalysis(1)
+                      : attempt1.audioBlob &&
+                        runTranscribeAndAnalyze(
+                          attempt1.audioBlob,
+                          attempt1.audioUrl!,
+                          attempt1.durationSeconds,
+                          1
+                        )
+                  }
+                >
+                  {attempt1.transcript ? "Retry analysis" : "Submit for transcription"}
+                </Button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {stage === "transcribing" && audioUrl && (
-          <div className="flex flex-col items-center gap-6">
-            <AudioPlayback audioUrl={audioUrl} />
-            <TranscriptView status="transcribing" />
-          </div>
-        )}
-
-        {stage === "done" && audioUrl && transcript && (
-          <div className="flex flex-col gap-6">
-            <AudioPlayback audioUrl={audioUrl} />
-            <div className="flex flex-col gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                Transcript
-              </span>
-              <TranscriptView status="done" text={transcript} />
+          {stage === "transcribing1" && attempt1.audioUrl && (
+            <div className="flex flex-col items-center gap-6">
+              <AudioPlayback audioUrl={attempt1.audioUrl} />
+              <TranscriptView status="transcribing" />
             </div>
-          </div>
-        )}
-      </Card>
+          )}
 
-      {stage === "done" && (
-        <div className="flex justify-between">
-          <Link href="/">
-            <Button variant="ghost">Back to dashboard</Button>
-          </Link>
-          <Link href="/session">
-            <Button variant="secondary">Start another prompt</Button>
-          </Link>
+          {stage === "analyzing1" && attempt1.audioUrl && (
+            <div className="flex flex-col gap-6">
+              <AudioPlayback audioUrl={attempt1.audioUrl} />
+              {attempt1.transcript && (
+                <TranscriptView status="done" text={attempt1.transcript} />
+              )}
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                Analyzing your response&hellip;
+              </p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {stage === "feedback" && attempt1.analysis && drill && (
+        <div className="flex flex-col gap-6">
+          <FeedbackPanel
+            analysis={attempt1.analysis}
+            confirmedMeaning={confirmedMeaning}
+            onConfirm={(confirmed) => {
+              setConfirmedMeaning(confirmed);
+              persistence.confirmMeaning(confirmed);
+            }}
+          />
+          <DrillCard drill={drill} onStart={() => setStage("recording2")} />
         </div>
+      )}
+
+      {(stage === "recording2" ||
+        stage === "recorded2" ||
+        stage === "transcribing2" ||
+        stage === "analyzing2") && (
+        <>
+          {drill && (
+            <Card className="flex flex-col gap-2 border-zinc-300 dark:border-zinc-700">
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+                {drill.label} &mdash; Attempt 2
+              </span>
+              <p className="text-sm text-zinc-700 dark:text-zinc-300">{drill.instructions}</p>
+            </Card>
+          )}
+
+          <Card>
+            {stage === "recording2" && (
+              <RecorderPanel
+                onRecorded={(blob, url, seconds) =>
+                  runTranscribeAndAnalyze(blob, url, seconds, 2)
+                }
+              />
+            )}
+
+            {stage === "recorded2" && attempt2.audioUrl && (
+              <div className="flex flex-col items-center gap-6">
+                <AudioPlayback audioUrl={attempt2.audioUrl} />
+                {errorMessage && (
+                  <p className="text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
+                )}
+                <div className="flex gap-3">
+                  <Button variant="secondary" onClick={() => setStage("recording2")}>
+                    Record again
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      attempt2.transcript
+                        ? retryAnalysis(2)
+                        : attempt2.audioBlob &&
+                          runTranscribeAndAnalyze(
+                            attempt2.audioBlob,
+                            attempt2.audioUrl!,
+                            attempt2.durationSeconds,
+                            2
+                          )
+                    }
+                  >
+                    {attempt2.transcript ? "Retry" : "Submit for transcription"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {stage === "transcribing2" && attempt2.audioUrl && (
+              <div className="flex flex-col items-center gap-6">
+                <AudioPlayback audioUrl={attempt2.audioUrl} />
+                <TranscriptView status="transcribing" />
+              </div>
+            )}
+
+            {stage === "analyzing2" && attempt2.audioUrl && (
+              <div className="flex flex-col gap-6">
+                <AudioPlayback audioUrl={attempt2.audioUrl} />
+                {attempt2.transcript && (
+                  <TranscriptView status="done" text={attempt2.transcript} />
+                )}
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Analyzing your response&hellip;
+                </p>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+
+      {stage === "comparing" && (
+        <Card>
+          <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+            Comparing your two attempts&hellip;
+          </p>
+        </Card>
+      )}
+
+      {stage === "compared" && comparison && (
+        <>
+          <ComparisonView comparison={comparison} />
+          <div className="flex justify-between">
+            <Link href="/">
+              <Button variant="ghost">Back to dashboard</Button>
+            </Link>
+            <Link href="/session">
+              <Button variant="secondary">Start another prompt</Button>
+            </Link>
+          </div>
+        </>
       )}
     </div>
   );
