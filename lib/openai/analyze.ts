@@ -113,10 +113,15 @@ interface RawAnalysis extends Omit<SpeechAnalysis, "metrics"> {
 
 export async function analyzeSpeech(
   transcript: string,
-  durationSeconds: number
+  durationSeconds: number,
+  targetStructure?: string
 ): Promise<SpeechAnalysis> {
   const client = getOpenAIClient();
   const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
+
+  const structureNote = targetStructure
+    ? `\n\nThe speaker was asked to try following this structure before recording: "${targetStructure}". Judge structure_detected/structure_suggested and biggest_weakness/strongest_skill relative to how well they followed it, but don't penalize minor deviations if the answer was still clear.`
+    : "";
 
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -124,7 +129,7 @@ export async function analyzeSpeech(
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Prompt duration: ${durationSeconds} seconds. Word count: ${wordCount}.\n\nTranscript:\n"""\n${transcript}\n"""`,
+        content: `Prompt duration: ${durationSeconds} seconds. Word count: ${wordCount}.${structureNote}\n\nTranscript:\n"""\n${transcript}\n"""`,
       },
     ],
     response_format: { type: "json_schema", json_schema: JSON_SCHEMA },

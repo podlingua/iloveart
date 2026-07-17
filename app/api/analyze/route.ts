@@ -8,6 +8,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const transcript = body?.transcript;
   const durationSeconds = body?.durationSeconds;
+  const targetStructure =
+    typeof body?.targetStructure === "string" ? body.targetStructure : undefined;
 
   if (typeof transcript !== "string" || !transcript.trim()) {
     return NextResponse.json({ error: "A transcript is required." }, { status: 400 });
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const analysis = await analyzeSpeech(transcript, durationSeconds);
+    const analysis = await analyzeSpeech(transcript, durationSeconds, targetStructure);
     const drill = getDrill(analysis.weakness_type);
     return NextResponse.json({ analysis, drill });
   } catch (err) {

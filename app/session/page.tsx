@@ -14,6 +14,7 @@ import { FeedbackPanel } from "@/components/session/FeedbackPanel";
 import { DrillCard } from "@/components/session/DrillCard";
 import { ComparisonView } from "@/components/session/ComparisonView";
 import { createCustomPrompt, getRandomPrompt } from "@/lib/prompts/seedPrompts";
+import { getStructureOption } from "@/lib/prompts/structures";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 
@@ -75,12 +76,13 @@ async function transcribeAudio(blob: Blob): Promise<string> {
 
 async function analyzeTranscript(
   transcript: string,
-  durationSeconds: number
+  durationSeconds: number,
+  targetStructure?: string
 ): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
   const res = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript, durationSeconds }),
+    body: JSON.stringify({ transcript, durationSeconds, targetStructure }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Analysis failed.");
@@ -117,6 +119,10 @@ function SessionPageInner() {
     () => (customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt()),
     [customTopic]
   );
+  const structure = useMemo(
+    () => getStructureOption(searchParams.get("structure")),
+    [searchParams]
+  );
   const [stage, setStage] = useState<Stage>("thinking");
   const [attempt1, setAttempt1] = useState<AttemptState>(EMPTY_ATTEMPT);
   const [attempt2, setAttempt2] = useState<AttemptState>(EMPTY_ATTEMPT);
@@ -142,7 +148,11 @@ function SessionPageInner() {
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
-      const { analysis, drill: newDrill } = await analyzeTranscript(transcript, durationSeconds);
+      const { analysis, drill: newDrill } = await analyzeTranscript(
+        transcript,
+        durationSeconds,
+        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
+      );
       setAttempt((prev) => ({ ...prev, analysis }));
 
       if (attemptNumber === 1) {
@@ -183,7 +193,8 @@ function SessionPageInner() {
     try {
       const { analysis, drill: newDrill } = await analyzeTranscript(
         attempt.transcript,
-        attempt.durationSeconds
+        attempt.durationSeconds,
+        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
       );
       const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
       setAttempt((prev) => ({ ...prev, analysis }));
@@ -214,6 +225,23 @@ function SessionPageInner() {
           {prompt.text}
         </p>
       </Card>
+
+      {structure.id !== "auto" &&
+        (stage === "thinking" ||
+          stage === "recording1" ||
+          stage === "recorded1" ||
+          stage === "transcribing1" ||
+          stage === "analyzing1") && (
+          <Card className="flex flex-col gap-1 border-zinc-300 dark:border-zinc-700">
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+              Try this structure
+            </span>
+            <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
+              {structure.label}
+            </span>
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">{structure.description}</p>
+          </Card>
+        )}
 
       {(stage === "thinking" ||
         stage === "recording1" ||
