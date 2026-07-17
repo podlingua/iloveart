@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { STRUCTURE_OPTIONS, StructureId } from "@/lib/prompts/structures";
+import { STRUCTURE_GROUPS, StructureId } from "@/lib/prompts/structures";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -46,11 +46,23 @@ export default function Dashboard() {
           onChange={(e) => setStructureId(e.target.value as StructureId)}
           className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
         >
-          {STRUCTURE_OPTIONS.map((option) => (
-            <option key={option.id} value={option.id}>
-              {option.label}
-            </option>
-          ))}
+          {STRUCTURE_GROUPS.map((g) =>
+            g.group === "Default" ? (
+              g.options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))
+            ) : (
+              <optgroup key={g.group} label={g.group}>
+                {g.options.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            )
+          )}
         </select>
       </div>
 
