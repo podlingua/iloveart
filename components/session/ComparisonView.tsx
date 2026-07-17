@@ -5,6 +5,7 @@ const DIMENSION_LABELS: Record<keyof ComparisonResult["dimensions"], string> = {
   time_to_point: "Time to main point",
   filler_words: "Filler words",
   repetition: "Repetition",
+  stutters: "Stutters / repeated words",
   structure: "Answer structure",
   conciseness: "Conciseness",
   use_of_examples: "Use of examples",

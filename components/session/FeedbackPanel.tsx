@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StructureDiagram } from "@/components/session/StructureDiagram";
+import { MetricsStats } from "@/components/session/MetricsStats";
 import { SpeechAnalysis } from "@/lib/types/analysis";
 
 interface FeedbackPanelProps {
@@ -54,6 +55,8 @@ export function FeedbackPanel({ analysis, confirmedMeaning, onConfirm }: Feedbac
           tone="suggested"
         />
       </Card>
+
+      <MetricsStats metrics={analysis.metrics} />
 
       <Card className="flex flex-col gap-2">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">

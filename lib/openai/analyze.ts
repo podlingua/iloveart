@@ -14,7 +14,8 @@ Rules:
   - "precision": the speaker relied on vague language (thing, stuff, something, kind of, you know) instead of specific words.
   - "structure": the ideas were not clearly organized or connected (tangents, unclear ordering, unfinished thoughts).
   - "compression": the answer was repetitive, rambling, or much longer than it needed to be.
-- Metrics are holistic judgments from reading the transcript, not exact algorithmic counts. Use your judgment about what's actually disruptive versus normal spoken language.`;
+- Metrics are holistic judgments from reading the transcript, not exact algorithmic counts. Use your judgment about what's actually disruptive versus normal spoken language.
+- "stutter_count" counts stutter-like disfluencies visible in the transcript text: repeated word fragments or whole words at the start of an utterance (e.g. "I- I- I think", "the the point"), and sound/syllable repetitions written out in the transcript (e.g. "b-b-but"). This is a transcript-based estimate only — it cannot detect audio-only patterns like blocks or prolonged sounds that a transcript doesn't capture. Do not count ordinary filler words ("um", "uh") or normal restarts here; those are covered by filler_word_count and restart_count.`;
 
 const JSON_SCHEMA = {
   name: "speech_analysis",
@@ -77,6 +78,11 @@ const JSON_SCHEMA = {
             type: "integer",
             description: "Number of abandoned or restarted sentences.",
           },
+          stutter_count: {
+            type: "integer",
+            description:
+              "Count of stutter-like word/sound repetitions visible in the transcript text (e.g. \"I- I- I\", \"b-b-but\"), not ordinary filler words or restarts.",
+          },
         },
         required: [
           "time_to_point_seconds",
@@ -85,6 +91,7 @@ const JSON_SCHEMA = {
           "avg_sentence_length",
           "vague_term_count",
           "restart_count",
+          "stutter_count",
         ],
       },
     },

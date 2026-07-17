@@ -7,6 +7,7 @@ For each dimension, judge whether attempt 2 was "improved", "same", or "regresse
 - time_to_point: lower time_to_point_seconds is better (faster to the main point). If either is null, judge from context.
 - filler_words: fewer filler_word_count is better.
 - repetition: lower repetition_count is better.
+- stutters: lower stutter_count is better.
 - structure: judge from structure_detected/structure_suggested and biggest_weakness/strongest_skill whether organization got clearer.
 - conciseness: judge from avg_sentence_length, repetition_count, and overall answer quality whether the answer became tighter.
 - use_of_examples: judge whether attempt 2 used examples as well as or better than attempt 1.
@@ -30,6 +31,7 @@ const JSON_SCHEMA = {
           time_to_point: { type: "string", enum: ["improved", "same", "regressed"] },
           filler_words: { type: "string", enum: ["improved", "same", "regressed"] },
           repetition: { type: "string", enum: ["improved", "same", "regressed"] },
+          stutters: { type: "string", enum: ["improved", "same", "regressed"] },
           structure: { type: "string", enum: ["improved", "same", "regressed"] },
           conciseness: { type: "string", enum: ["improved", "same", "regressed"] },
           use_of_examples: { type: "string", enum: ["improved", "same", "regressed"] },
@@ -40,6 +42,7 @@ const JSON_SCHEMA = {
           "time_to_point",
           "filler_words",
           "repetition",
+          "stutters",
           "structure",
           "conciseness",
           "use_of_examples",
@@ -92,6 +95,7 @@ export async function compareAttempts(
       ),
       filler_word_count: attempt2.metrics.filler_word_count - attempt1.metrics.filler_word_count,
       repetition_count: attempt2.metrics.repetition_count - attempt1.metrics.repetition_count,
+      stutter_count: attempt2.metrics.stutter_count - attempt1.metrics.stutter_count,
       speaking_pace_wpm: diff(
         attempt1.metrics.speaking_pace_wpm,
         attempt2.metrics.speaking_pace_wpm

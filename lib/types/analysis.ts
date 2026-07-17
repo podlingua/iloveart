@@ -8,6 +8,7 @@ export interface AnalysisMetrics {
   speaking_pace_wpm: number | null;
   vague_term_count: number;
   restart_count: number;
+  stutter_count: number;
 }
 
 export interface SpeechAnalysis {
@@ -34,6 +35,7 @@ export interface ComparisonResult {
     time_to_point: ComparisonVerdict;
     filler_words: ComparisonVerdict;
     repetition: ComparisonVerdict;
+    stutters: ComparisonVerdict;
     structure: ComparisonVerdict;
     conciseness: ComparisonVerdict;
     use_of_examples: ComparisonVerdict;
@@ -44,6 +46,7 @@ export interface ComparisonResult {
     time_to_point_seconds: number | null;
     filler_word_count: number;
     repetition_count: number;
+    stutter_count: number;
     speaking_pace_wpm: number | null;
   };
 }
