@@ -1,11 +1,19 @@
 import { createClient } from "@/lib/supabase/client";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 
-export async function createSession(userId: string, promptId: string): Promise<string> {
+export async function createSession(
+  userId: string,
+  promptId: string | null,
+  customPromptText?: string
+): Promise<string> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("sessions")
-    .insert({ user_id: userId, prompt_id: promptId })
+    .insert({
+      user_id: userId,
+      prompt_id: promptId,
+      custom_prompt_text: customPromptText ?? null,
+    })
     .select("id")
     .single();
   if (error) throw error;
@@ -149,6 +157,7 @@ export async function completeSession(sessionId: string): Promise<void> {
 export interface SessionHistoryRow {
   id: string;
   prompt_id: string | null;
+  custom_prompt_text: string | null;
   status: string;
   created_at: string;
   completed_at: string | null;
@@ -159,7 +168,9 @@ export async function listSessions(userId: string): Promise<SessionHistoryRow[]>
   const supabase = createClient();
   const { data, error } = await supabase
     .from("sessions")
-    .select("id, prompt_id, status, created_at, completed_at, prompts ( text )")
+    .select(
+      "id, prompt_id, custom_prompt_text, status, created_at, completed_at, prompts ( text )"
+    )
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;

@@ -69,7 +69,7 @@ export default function HistoryPage() {
             <Card key={session.id} className="flex items-center justify-between gap-4">
               <div className="flex flex-col gap-1">
                 <span className="text-sm text-zinc-800 dark:text-zinc-200">
-                  {session.prompts?.text ?? "Prompt"}
+                  {session.custom_prompt_text ?? session.prompts?.text ?? "Prompt"}
                 </span>
                 <span className="text-xs text-zinc-400">{formatDate(session.created_at)}</span>
               </div>

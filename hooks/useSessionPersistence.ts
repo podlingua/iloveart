@@ -15,6 +15,7 @@ import {
   uploadRecording,
 } from "@/lib/db/sessions";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
+import { CUSTOM_PROMPT_ID, Prompt } from "@/lib/prompts/seedPrompts";
 
 interface AttemptPayload {
   blob: Blob;
@@ -23,7 +24,7 @@ interface AttemptPayload {
   analysis: SpeechAnalysis;
 }
 
-export function useSessionPersistence(promptId: string) {
+export function useSessionPersistence(prompt: Prompt) {
   const { user } = useAuth();
   const sessionIdRef = useRef<string | null>(null);
   const analysisIdsRef = useRef<{ 1?: string; 2?: string }>({});
@@ -31,10 +32,15 @@ export function useSessionPersistence(promptId: string) {
   const ensureSession = useCallback(async () => {
     if (!isSupabaseConfigured || !user) return null;
     if (sessionIdRef.current) return sessionIdRef.current;
-    const id = await createSession(user.id, promptId);
+    const isCustom = prompt.id === CUSTOM_PROMPT_ID;
+    const id = await createSession(
+      user.id,
+      isCustom ? null : prompt.id,
+      isCustom ? prompt.text : undefined
+    );
     sessionIdRef.current = id;
     return id;
-  }, [user, promptId]);
+  }, [user, prompt]);
 
   const persistAttempt = useCallback(
     async (attemptNumber: 1 | 2, data: AttemptPayload) => {

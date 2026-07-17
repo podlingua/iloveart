@@ -1,7 +1,7 @@
 export interface Prompt {
   id: string;
   text: string;
-  category: "opinion" | "explain" | "story" | "belief";
+  category: "opinion" | "explain" | "story" | "belief" | "custom";
 }
 
 export const SEED_PROMPTS: Prompt[] = [
@@ -37,4 +37,10 @@ export function getRandomPrompt(excludeId?: string): Prompt {
     ? SEED_PROMPTS.filter((p) => p.id !== excludeId)
     : SEED_PROMPTS;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+export const CUSTOM_PROMPT_ID = "custom";
+
+export function createCustomPrompt(text: string): Prompt {
+  return { id: CUSTOM_PROMPT_ID, text, category: "custom" };
 }

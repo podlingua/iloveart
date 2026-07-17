@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProgressSteps } from "@/components/session/ProgressSteps";
@@ -12,7 +13,7 @@ import { TranscriptView } from "@/components/session/TranscriptView";
 import { FeedbackPanel } from "@/components/session/FeedbackPanel";
 import { DrillCard } from "@/components/session/DrillCard";
 import { ComparisonView } from "@/components/session/ComparisonView";
-import { getRandomPrompt } from "@/lib/prompts/seedPrompts";
+import { createCustomPrompt, getRandomPrompt } from "@/lib/prompts/seedPrompts";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 
@@ -102,7 +103,20 @@ async function compareAttempts(
 }
 
 export default function SessionPage() {
-  const prompt = useMemo(() => getRandomPrompt(), []);
+  return (
+    <Suspense fallback={null}>
+      <SessionPageInner />
+    </Suspense>
+  );
+}
+
+function SessionPageInner() {
+  const searchParams = useSearchParams();
+  const customTopic = searchParams.get("topic");
+  const prompt = useMemo(
+    () => (customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt()),
+    [customTopic]
+  );
   const [stage, setStage] = useState<Stage>("thinking");
   const [attempt1, setAttempt1] = useState<AttemptState>(EMPTY_ATTEMPT);
   const [attempt2, setAttempt2] = useState<AttemptState>(EMPTY_ATTEMPT);
@@ -110,7 +124,7 @@ export default function SessionPage() {
   const [confirmedMeaning, setConfirmedMeaning] = useState<boolean | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const persistence = useSessionPersistence(prompt.id);
+  const persistence = useSessionPersistence(prompt);
 
   const runTranscribeAndAnalyze = async (
     blob: Blob,
@@ -194,7 +208,7 @@ export default function SessionPage() {
 
       <Card className="flex flex-col gap-4">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Today&apos;s prompt
+          {prompt.category === "custom" ? "Your topic" : "Today's prompt"}
         </span>
         <p className="text-2xl font-semibold leading-snug text-zinc-900 dark:text-zinc-100">
           {prompt.text}
