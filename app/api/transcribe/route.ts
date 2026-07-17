@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
 
   const formData = await req.formData();
   const file = formData.get("audio");
+  const lang = formData.get("lang") === "es" ? "es" : "en";
 
   if (!(file instanceof File)) {
     return NextResponse.json(
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     const transcription = await client.audio.transcriptions.create({
       file,
       model: "gpt-4o-mini-transcribe",
+      language: lang,
     });
 
     return NextResponse.json({ text: transcription.text });

@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/supabase/AuthProvider";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function SaveProgressPage() {
   const { user, loading } = useAuth();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "sent" | "error">("idle");
@@ -31,7 +33,7 @@ export default function SaveProgressPage() {
 
       setStatus("sent");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Saving progress failed.");
+      setError(err instanceof Error ? err.message : t.saveProgress.failed);
       setStatus("error");
     }
   };
@@ -42,10 +44,10 @@ export default function SaveProgressPage() {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
         <p className="text-zinc-600 dark:text-zinc-400">
-          Your progress is already saved to {user.email}.
+          {t.saveProgress.alreadySaved(user.email ?? "")}
         </p>
         <Link href="/">
-          <Button variant="secondary">Back to dashboard</Button>
+          <Button variant="secondary">{t.saveProgress.backToDashboard}</Button>
         </Link>
       </div>
     );
@@ -55,24 +57,22 @@ export default function SaveProgressPage() {
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-6 py-12">
       <div className="flex flex-col gap-2 text-center">
         <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
-          Save your progress
+          {t.saveProgress.title}
         </h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Add an email and password so your session history is here next time you visit.
-        </p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.saveProgress.subtitle}</p>
       </div>
 
       <Card>
         {status === "sent" ? (
           <p className="text-center text-sm text-zinc-600 dark:text-zinc-400">
-            We sent a confirmation link to {email}. Click it to finish saving your progress.
+            {t.saveProgress.sent(email)}
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <input
               type="email"
               required
-              placeholder="Email"
+              placeholder={t.saveProgress.emailPlaceholder}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
@@ -81,21 +81,24 @@ export default function SaveProgressPage() {
               type="password"
               required
               minLength={6}
-              placeholder="Password"
+              placeholder={t.saveProgress.passwordPlaceholder}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
             />
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <Button type="submit" disabled={status === "submitting"}>
-              {status === "submitting" ? "Saving…" : "Save progress"}
+              {status === "submitting" ? t.saveProgress.saving : t.saveProgress.submit}
             </Button>
           </form>
         )}
       </Card>
 
-      <Link href="/sign-in" className="text-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-        Already have an account? Sign in
+      <Link
+        href="/sign-in"
+        className="text-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        {t.saveProgress.alreadyHaveAccount}
       </Link>
     </div>
   );

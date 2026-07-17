@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
   const attempt1 = body?.attempt1 as SpeechAnalysis | undefined;
   const attempt2 = body?.attempt2 as SpeechAnalysis | undefined;
   const promptText = body?.promptText;
+  const lang = body?.lang === "es" ? "es" : "en";
 
   if (!attempt1 || !attempt2 || typeof promptText !== "string") {
     return NextResponse.json(
@@ -18,7 +19,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const comparison = await compareAttempts(attempt1, attempt2, promptText);
+    const comparison = await compareAttempts(attempt1, attempt2, promptText, lang);
     return NextResponse.json({ comparison });
   } catch (err) {
     console.error("Comparison failed:", err);

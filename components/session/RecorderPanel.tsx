@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/Button";
 import { useRecorder } from "@/hooks/useRecorder";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -18,6 +19,7 @@ export function RecorderPanel({ onRecorded }: RecorderPanelProps) {
   const { status, elapsedSeconds, audioBlob, audioUrl, error, start, stop, maxSeconds } =
     useRecorder();
   const reportedRef = useRef(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (status === "stopped" && audioBlob && audioUrl && !reportedRef.current) {
@@ -34,16 +36,14 @@ export function RecorderPanel({ onRecorded }: RecorderPanelProps) {
       {status === "idle" && (
         <>
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            You&apos;ll have up to {formatTime(maxSeconds)} to respond.
+            {t.recorder.upToTime(formatTime(maxSeconds))}
           </p>
-          <Button onClick={start}>Start recording</Button>
+          <Button onClick={start}>{t.recorder.startRecording}</Button>
         </>
       )}
 
       {status === "requesting-permission" && (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Requesting microphone access&hellip;
-        </p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.recorder.requestingMic}</p>
       )}
 
       {(status === "recording" || status === "stopped") && (
@@ -60,15 +60,15 @@ export function RecorderPanel({ onRecorded }: RecorderPanelProps) {
 
       {status === "recording" && (
         <Button variant="secondary" onClick={stop}>
-          Stop recording
+          {t.recorder.stopRecording}
         </Button>
       )}
 
       {status === "error" && error && (
         <div className="flex flex-col items-center gap-4">
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{t.recorder.micError}</p>
           <Button variant="secondary" onClick={start}>
-            Try again
+            {t.recorder.tryAgain}
           </Button>
         </div>
       )}

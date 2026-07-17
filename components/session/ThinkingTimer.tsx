@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 const THINKING_SECONDS = 30;
 
@@ -11,6 +12,7 @@ interface ThinkingTimerProps {
 
 export function ThinkingTimer({ onDone }: ThinkingTimerProps) {
   const [secondsLeft, setSecondsLeft] = useState(THINKING_SECONDS);
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (secondsLeft <= 0) {
@@ -23,14 +25,12 @@ export function ThinkingTimer({ onDone }: ThinkingTimerProps) {
 
   return (
     <div className="flex flex-col items-center gap-6 text-center">
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Take a moment to think about your answer.
-      </p>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.thinkingTimer.prompt}</p>
       <div className="text-6xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
         {secondsLeft}
       </div>
       <Button variant="secondary" onClick={onDone}>
-        Skip and start recording
+        {t.thinkingTimer.skip}
       </Button>
     </div>
   );

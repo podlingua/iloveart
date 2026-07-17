@@ -1,3 +1,7 @@
+"use client";
+
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
+
 interface TranscriptViewProps {
   status: "transcribing" | "done" | "error";
   text?: string;
@@ -5,11 +9,11 @@ interface TranscriptViewProps {
 }
 
 export function TranscriptView({ status, text, error }: TranscriptViewProps) {
+  const { t } = useLanguage();
+
   if (status === "transcribing") {
     return (
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
-        Transcribing your recording&hellip;
-      </p>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.transcript.transcribing}</p>
     );
   }
 

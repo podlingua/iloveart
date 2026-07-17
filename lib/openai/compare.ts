@@ -63,9 +63,13 @@ function diff(a: number | null, b: number | null): number | null {
 export async function compareAttempts(
   attempt1: SpeechAnalysis,
   attempt2: SpeechAnalysis,
-  promptText: string
+  promptText: string,
+  lang: "en" | "es" = "en"
 ): Promise<ComparisonResult> {
   const client = getOpenAIClient();
+
+  const languageNote =
+    lang === "es" ? '\n\nWrite the "summary" field in Spanish, not English.' : "";
 
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
@@ -73,7 +77,7 @@ export async function compareAttempts(
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Prompt: "${promptText}"\n\nAttempt 1 analysis:\n${JSON.stringify(attempt1)}\n\nAttempt 2 analysis:\n${JSON.stringify(attempt2)}`,
+        content: `Prompt: "${promptText}"${languageNote}\n\nAttempt 1 analysis:\n${JSON.stringify(attempt1)}\n\nAttempt 2 analysis:\n${JSON.stringify(attempt2)}`,
       },
     ],
     response_format: { type: "json_schema", json_schema: JSON_SCHEMA },

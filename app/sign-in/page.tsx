@@ -6,9 +6,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
+import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function SignInPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -31,7 +33,7 @@ export default function SignInPage() {
 
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Sign in failed.");
+      setError(err instanceof Error ? err.message : t.signIn.failed);
       setSubmitting(false);
     }
   };
@@ -39,10 +41,10 @@ export default function SignInPage() {
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 px-6 py-12">
       <div className="flex flex-col gap-2 text-center">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">Sign in</h1>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          Sign in to see your practice history on this device.
-        </p>
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+          {t.signIn.title}
+        </h1>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.signIn.subtitle}</p>
       </div>
 
       <Card>
@@ -50,7 +52,7 @@ export default function SignInPage() {
           <input
             type="email"
             required
-            placeholder="Email"
+            placeholder={t.signIn.emailPlaceholder}
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
@@ -58,20 +60,23 @@ export default function SignInPage() {
           <input
             type="password"
             required
-            placeholder="Password"
+            placeholder={t.signIn.passwordPlaceholder}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm text-zinc-900 outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
           />
           {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
           <Button type="submit" disabled={submitting}>
-            {submitting ? "Signing in…" : "Sign in"}
+            {submitting ? t.signIn.signingIn : t.signIn.submit}
           </Button>
         </form>
       </Card>
 
-      <Link href="/" className="text-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100">
-        Back to dashboard
+      <Link
+        href="/"
+        className="text-center text-sm text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+      >
+        {t.signIn.backToDashboard}
       </Link>
     </div>
   );

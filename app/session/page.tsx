@@ -17,6 +17,7 @@ import { createCustomPrompt, getRandomPrompt } from "@/lib/prompts/seedPrompts";
 import { getStructureOption } from "@/lib/prompts/structures";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
+import { Lang, useLanguage } from "@/lib/i18n/LanguageProvider";
 
 type Stage =
   | "thinking"
@@ -31,8 +32,6 @@ type Stage =
   | "analyzing2"
   | "comparing"
   | "compared";
-
-const STEPS = ["Prompt", "Record", "Listen", "Feedback", "Drill", "Record Again", "Compare"];
 
 const STAGE_TO_STEP_INDEX: Record<Stage, number> = {
   thinking: 0,
@@ -65,9 +64,10 @@ const EMPTY_ATTEMPT: AttemptState = {
   analysis: null,
 };
 
-async function transcribeAudio(blob: Blob): Promise<string> {
+async function transcribeAudio(blob: Blob, lang: Lang): Promise<string> {
   const formData = new FormData();
   formData.append("audio", blob, "recording.webm");
+  formData.append("lang", lang);
   const res = await fetch("/api/transcribe", { method: "POST", body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Transcription failed.");
@@ -77,12 +77,13 @@ async function transcribeAudio(blob: Blob): Promise<string> {
 async function analyzeTranscript(
   transcript: string,
   durationSeconds: number,
+  lang: Lang,
   targetStructure?: string
 ): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
   const res = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript, durationSeconds, targetStructure }),
+    body: JSON.stringify({ transcript, durationSeconds, targetStructure, lang }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Analysis failed.");
@@ -92,12 +93,13 @@ async function analyzeTranscript(
 async function compareAttempts(
   attempt1: SpeechAnalysis,
   attempt2: SpeechAnalysis,
-  promptText: string
+  promptText: string,
+  lang: Lang
 ): Promise<ComparisonResult> {
   const res = await fetch("/api/compare", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ attempt1, attempt2, promptText }),
+    body: JSON.stringify({ attempt1, attempt2, promptText, lang }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Comparison failed.");
@@ -114,14 +116,16 @@ export default function SessionPage() {
 
 function SessionPageInner() {
   const searchParams = useSearchParams();
+  const { lang, t } = useLanguage();
   const customTopic = searchParams.get("topic");
   const prompt = useMemo(
-    () => (customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt()),
-    [customTopic]
+    () =>
+      customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt(lang),
+    [customTopic, lang]
   );
   const structure = useMemo(
-    () => getStructureOption(searchParams.get("structure")),
-    [searchParams]
+    () => getStructureOption(searchParams.get("structure"), lang),
+    [searchParams, lang]
   );
   const [stage, setStage] = useState<Stage>("thinking");
   const [attempt1, setAttempt1] = useState<AttemptState>(EMPTY_ATTEMPT);
@@ -144,13 +148,14 @@ function SessionPageInner() {
     setErrorMessage(null);
 
     try {
-      const transcript = await transcribeAudio(blob);
+      const transcript = await transcribeAudio(blob, lang);
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
       const { analysis, drill: newDrill } = await analyzeTranscript(
         transcript,
         durationSeconds,
+        lang,
         attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
       );
       setAttempt((prev) => ({ ...prev, analysis }));
@@ -167,7 +172,8 @@ function SessionPageInner() {
           const result = await compareAttempts(
             attempt1.analysis as SpeechAnalysis,
             analysis,
-            prompt.text
+            prompt.text,
+            lang
           );
           setComparison(result);
           setStage("compared");
@@ -194,6 +200,7 @@ function SessionPageInner() {
       const { analysis, drill: newDrill } = await analyzeTranscript(
         attempt.transcript,
         attempt.durationSeconds,
+        lang,
         attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
       );
       const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
@@ -203,7 +210,12 @@ function SessionPageInner() {
         setStage("feedback");
       } else {
         setStage("comparing");
-        const result = await compareAttempts(attempt1.analysis as SpeechAnalysis, analysis, prompt.text);
+        const result = await compareAttempts(
+          attempt1.analysis as SpeechAnalysis,
+          analysis,
+          prompt.text,
+          lang
+        );
         setComparison(result);
         setStage("compared");
       }
@@ -215,11 +227,11 @@ function SessionPageInner() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
-      <ProgressSteps steps={STEPS} currentIndex={STAGE_TO_STEP_INDEX[stage]} />
+      <ProgressSteps steps={t.progress.steps} currentIndex={STAGE_TO_STEP_INDEX[stage]} />
 
       <Card className="flex flex-col gap-4">
         <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-          {prompt.category === "custom" ? "Your topic" : "Today's prompt"}
+          {prompt.category === "custom" ? t.session.yourTopic : t.session.todaysPrompt}
         </span>
         <p className="text-2xl font-semibold leading-snug text-zinc-900 dark:text-zinc-100">
           {prompt.text}
@@ -234,7 +246,7 @@ function SessionPageInner() {
           stage === "analyzing1") && (
           <Card className="flex flex-col gap-1 border-zinc-300 dark:border-zinc-700">
             <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-              Try this structure
+              {t.session.tryThisStructure}
             </span>
             <span className="text-sm font-semibold text-zinc-800 dark:text-zinc-200">
               {structure.label}
@@ -267,7 +279,7 @@ function SessionPageInner() {
               )}
               <div className="flex gap-3">
                 <Button variant="secondary" onClick={() => setStage("recording1")}>
-                  Record again
+                  {t.session.recordAgain}
                 </Button>
                 <Button
                   onClick={() =>
@@ -282,7 +294,7 @@ function SessionPageInner() {
                         )
                   }
                 >
-                  {attempt1.transcript ? "Retry analysis" : "Submit for transcription"}
+                  {attempt1.transcript ? t.session.retryAnalysis : t.session.submitForTranscription}
                 </Button>
               </div>
             </div>
@@ -301,9 +313,7 @@ function SessionPageInner() {
               {attempt1.transcript && (
                 <TranscriptView status="done" text={attempt1.transcript} />
               )}
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Analyzing your response&hellip;
-              </p>
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.session.analyzing}</p>
             </div>
           )}
         </Card>
@@ -331,7 +341,7 @@ function SessionPageInner() {
           {drill && (
             <Card className="flex flex-col gap-2 border-zinc-300 dark:border-zinc-700">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                {drill.label} &mdash; Attempt 2
+                {drill.label} {t.session.attempt2Suffix}
               </span>
               <p className="text-sm text-zinc-700 dark:text-zinc-300">{drill.instructions}</p>
             </Card>
@@ -354,7 +364,7 @@ function SessionPageInner() {
                 )}
                 <div className="flex gap-3">
                   <Button variant="secondary" onClick={() => setStage("recording2")}>
-                    Record again
+                    {t.session.recordAgain}
                   </Button>
                   <Button
                     onClick={() =>
@@ -369,7 +379,7 @@ function SessionPageInner() {
                           )
                     }
                   >
-                    {attempt2.transcript ? "Retry" : "Submit for transcription"}
+                    {attempt2.transcript ? t.session.retry : t.session.submitForTranscription}
                   </Button>
                 </div>
               </div>
@@ -388,9 +398,7 @@ function SessionPageInner() {
                 {attempt2.transcript && (
                   <TranscriptView status="done" text={attempt2.transcript} />
                 )}
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Analyzing your response&hellip;
-                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.session.analyzing}</p>
               </div>
             )}
           </Card>
@@ -400,7 +408,7 @@ function SessionPageInner() {
       {stage === "comparing" && (
         <Card>
           <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
-            Comparing your two attempts&hellip;
+            {t.session.comparingAttempts}
           </p>
         </Card>
       )}
@@ -410,10 +418,10 @@ function SessionPageInner() {
           <ComparisonView comparison={comparison} />
           <div className="flex justify-between">
             <Link href="/">
-              <Button variant="ghost">Back to dashboard</Button>
+              <Button variant="ghost">{t.session.backToDashboard}</Button>
             </Link>
             <Link href="/session">
-              <Button variant="secondary">Start another prompt</Button>
+              <Button variant="secondary">{t.session.startAnotherPrompt}</Button>
             </Link>
           </div>
         </>
