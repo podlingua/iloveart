@@ -13,9 +13,11 @@ import { TranscriptView } from "@/components/session/TranscriptView";
 import { FeedbackPanel } from "@/components/session/FeedbackPanel";
 import { DrillCard } from "@/components/session/DrillCard";
 import { ComparisonView } from "@/components/session/ComparisonView";
+import { FactCheckCard } from "@/components/session/FactCheckCard";
 import { createCustomPrompt, getRandomPrompt } from "@/lib/prompts/seedPrompts";
 import { getStructureOption } from "@/lib/prompts/structures";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
+import { FactCheckResult } from "@/lib/types/factCheck";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 import { Lang, useLanguage } from "@/lib/i18n/LanguageProvider";
 
@@ -90,6 +92,17 @@ async function analyzeTranscript(
   return data;
 }
 
+async function factCheck(transcript: string, lang: Lang): Promise<FactCheckResult> {
+  const res = await fetch("/api/fact-check", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ transcript, lang }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || "Fact-check failed.");
+  return data.factCheck;
+}
+
 async function compareAttempts(
   attempt1: SpeechAnalysis,
   attempt2: SpeechAnalysis,
@@ -134,7 +147,23 @@ function SessionPageInner() {
   const [confirmedMeaning, setConfirmedMeaning] = useState<boolean | null>(null);
   const [comparison, setComparison] = useState<ComparisonResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [factCheckStatus, setFactCheckStatus] = useState<"checking" | "done" | "error" | null>(
+    null
+  );
+  const [factCheckResult, setFactCheckResult] = useState<FactCheckResult | null>(null);
   const persistence = useSessionPersistence(prompt);
+
+  const runFactCheck = (transcript: string) => {
+    setFactCheckStatus("checking");
+    factCheck(transcript, lang)
+      .then((result) => {
+        setFactCheckResult(result);
+        setFactCheckStatus("done");
+      })
+      .catch(() => {
+        setFactCheckStatus("error");
+      });
+  };
 
   const runTranscribeAndAnalyze = async (
     blob: Blob,
@@ -151,6 +180,10 @@ function SessionPageInner() {
       const transcript = await transcribeAudio(blob, lang);
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
+
+      if (attemptNumber === 1) {
+        runFactCheck(transcript);
+      }
 
       const { analysis, drill: newDrill } = await analyzeTranscript(
         transcript,
@@ -329,6 +362,13 @@ function SessionPageInner() {
               persistence.confirmMeaning(confirmed);
             }}
           />
+          {factCheckStatus && (
+            <FactCheckCard
+              status={factCheckStatus}
+              result={factCheckResult}
+              onRetry={() => attempt1.transcript && runFactCheck(attempt1.transcript)}
+            />
+          )}
           <DrillCard drill={drill} onStart={() => setStage("recording2")} />
         </div>
       )}

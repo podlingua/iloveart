@@ -77,6 +77,22 @@ export const en = {
     yourDrill: "Your drill",
     beginAttempt2: "Begin attempt 2",
   },
+  factCheck: {
+    heading: "Fact check",
+    checking: "Checking claims against web sources…",
+    noClaims: "No checkable factual claims found in this response.",
+    failed: "Fact-check failed. Please try again.",
+    retry: "Retry",
+    sources: "Sources",
+    disclaimer:
+      "Based on a live web search at the time of your recording. Verify anything important yourself — this is not a substitute for expert judgment.",
+    verdicts: {
+      true: "True",
+      false: "False",
+      misleading: "Misleading",
+      unverifiable: "Unverifiable",
+    },
+  },
   comparison: {
     heading: "Attempt 1 vs. Attempt 2",
     dimensions: {
@@ -214,6 +230,22 @@ export const es: Translations = {
   drill: {
     yourDrill: "Tu ejercicio",
     beginAttempt2: "Comenzar intento 2",
+  },
+  factCheck: {
+    heading: "Verificación de datos",
+    checking: "Verificando afirmaciones con fuentes web…",
+    noClaims: "No se encontraron afirmaciones verificables en esta respuesta.",
+    failed: "No se pudo verificar los datos. Intenta de nuevo.",
+    retry: "Reintentar",
+    sources: "Fuentes",
+    disclaimer:
+      "Basado en una búsqueda web en vivo al momento de tu grabación. Verifica por tu cuenta cualquier cosa importante — esto no sustituye el juicio de un experto.",
+    verdicts: {
+      true: "Verdadero",
+      false: "Falso",
+      misleading: "Engañoso",
+      unverifiable: "No verificable",
+    },
   },
   comparison: {
     heading: "Intento 1 vs. Intento 2",
