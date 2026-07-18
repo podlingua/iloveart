@@ -11,6 +11,7 @@ export default function Dashboard() {
   const { lang, t } = useLanguage();
   const [topic, setTopic] = useState("");
   const [structureId, setStructureId] = useState("auto");
+  const [factCheckEnabled, setFactCheckEnabled] = useState(false);
 
   const structureGroups = getStructureGroups(lang);
 
@@ -18,6 +19,7 @@ export default function Dashboard() {
     const params = new URLSearchParams();
     if (topicText) params.set("topic", topicText);
     if (structureId !== "auto") params.set("structure", structureId);
+    if (factCheckEnabled) params.set("factcheck", "1");
     const query = params.toString();
     return query ? `/session?${query}` : "/session";
   };
@@ -67,6 +69,16 @@ export default function Dashboard() {
           )}
         </select>
       </div>
+
+      <label className="flex w-full max-w-sm items-center gap-2 text-left text-sm text-zinc-600 dark:text-zinc-400">
+        <input
+          type="checkbox"
+          checked={factCheckEnabled}
+          onChange={(e) => setFactCheckEnabled(e.target.checked)}
+          className="h-4 w-4 rounded border-zinc-300 dark:border-zinc-700"
+        />
+        {t.dashboard.factCheckToggle}
+      </label>
 
       <Button className="px-10 py-4 text-base" onClick={startRandom}>
         {t.dashboard.startSession}

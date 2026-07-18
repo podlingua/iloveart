@@ -15,6 +15,7 @@ export const en = {
     orOwnTopic: "or talk about your own topic",
     topicPlaceholder: "e.g. Why remote work is overrated",
     startWithTopic: "Start with this topic",
+    factCheckToggle: "Fact-check my claims (uses live web search, adds a few seconds)",
   },
   progress: {
     steps: ["Prompt", "Record", "Listen", "Feedback", "Drill", "Record Again", "Compare"] as string[],
@@ -169,6 +170,8 @@ export const es: Translations = {
     orOwnTopic: "o habla sobre tu propio tema",
     topicPlaceholder: "ej. Por qué el trabajo remoto está sobrevalorado",
     startWithTopic: "Comenzar con este tema",
+    factCheckToggle:
+      "Verificar mis afirmaciones (usa búsqueda web en vivo, añade unos segundos)",
   },
   progress: {
     steps: ["Tema", "Grabar", "Escuchar", "Retroalimentación", "Ejercicio", "Grabar de Nuevo", "Comparar"],

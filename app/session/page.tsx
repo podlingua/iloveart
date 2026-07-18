@@ -140,6 +140,7 @@ function SessionPageInner() {
     () => getStructureOption(searchParams.get("structure"), lang),
     [searchParams, lang]
   );
+  const factCheckEnabled = searchParams.get("factcheck") === "1";
   const [stage, setStage] = useState<Stage>("thinking");
   const [attempt1, setAttempt1] = useState<AttemptState>(EMPTY_ATTEMPT);
   const [attempt2, setAttempt2] = useState<AttemptState>(EMPTY_ATTEMPT);
@@ -181,7 +182,7 @@ function SessionPageInner() {
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
-      if (attemptNumber === 1) {
+      if (attemptNumber === 1 && factCheckEnabled) {
         runFactCheck(transcript);
       }
 
