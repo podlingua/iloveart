@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -14,8 +14,9 @@ import { FeedbackPanel } from "@/components/session/FeedbackPanel";
 import { DrillCard } from "@/components/session/DrillCard";
 import { ComparisonView } from "@/components/session/ComparisonView";
 import { FactCheckCard } from "@/components/session/FactCheckCard";
-import { createCustomPrompt, getRandomPrompt } from "@/lib/prompts/seedPrompts";
+import { createCustomPrompt, getRandomPrompt, Prompt } from "@/lib/prompts/seedPrompts";
 import { getStructureOption } from "@/lib/prompts/structures";
+import { readAndClearSource } from "@/lib/prompts/sourceStorage";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 import { FactCheckResult } from "@/lib/types/factCheck";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
@@ -80,12 +81,13 @@ async function analyzeTranscript(
   transcript: string,
   durationSeconds: number,
   lang: Lang,
-  targetStructure?: string
+  targetStructure?: string,
+  referenceMaterial?: string
 ): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
   const res = await fetch("/api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript, durationSeconds, targetStructure, lang }),
+    body: JSON.stringify({ transcript, durationSeconds, targetStructure, referenceMaterial, lang }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Analysis failed.");
@@ -131,11 +133,29 @@ function SessionPageInner() {
   const searchParams = useSearchParams();
   const { lang, t } = useLanguage();
   const customTopic = searchParams.get("topic");
-  const prompt = useMemo(
-    () =>
-      customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt(lang),
-    [customTopic, lang]
-  );
+  const hasSourceParam = searchParams.get("source") === "1";
+  const [sourcePrompt, setSourcePrompt] = useState<Prompt | null>(null);
+  const [referenceMaterial, setReferenceMaterial] = useState<string | null>(null);
+  const [sourceLoaded, setSourceLoaded] = useState(!hasSourceParam);
+
+  useEffect(() => {
+    // One-time hydration of the uploaded source from sessionStorage after
+    // mount, since it isn't available during SSR and can't fit in a URL.
+    if (!hasSourceParam) return;
+    const source = readAndClearSource();
+    if (source) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSourcePrompt(createCustomPrompt(source.topic));
+      setReferenceMaterial(source.summary);
+    }
+    setSourceLoaded(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const prompt = useMemo(() => {
+    if (hasSourceParam) return sourcePrompt ?? createCustomPrompt("…");
+    return customTopic?.trim() ? createCustomPrompt(customTopic.trim()) : getRandomPrompt(lang);
+  }, [customTopic, lang, hasSourceParam, sourcePrompt]);
   const structure = useMemo(
     () => getStructureOption(searchParams.get("structure"), lang),
     [searchParams, lang]
@@ -190,7 +210,8 @@ function SessionPageInner() {
         transcript,
         durationSeconds,
         lang,
-        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
+        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined,
+        attemptNumber === 1 ? (referenceMaterial ?? undefined) : undefined
       );
       setAttempt((prev) => ({ ...prev, analysis }));
 
@@ -235,7 +256,8 @@ function SessionPageInner() {
         attempt.transcript,
         attempt.durationSeconds,
         lang,
-        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined
+        attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined,
+        attemptNumber === 1 ? (referenceMaterial ?? undefined) : undefined
       );
       const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
       setAttempt((prev) => ({ ...prev, analysis }));
@@ -259,6 +281,14 @@ function SessionPageInner() {
     }
   };
 
+  if (!sourceLoaded) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-6 py-12">
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">{t.session.loadingSource}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-8 px-6 py-12">
       <ProgressSteps steps={t.progress.steps} currentIndex={STAGE_TO_STEP_INDEX[stage]} />
@@ -271,6 +301,15 @@ function SessionPageInner() {
           {prompt.text}
         </p>
       </Card>
+
+      {referenceMaterial && (
+        <Card className="flex flex-col gap-1 border-zinc-300 dark:border-zinc-700">
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
+            {t.session.referenceMaterial}
+          </span>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">{referenceMaterial}</p>
+        </Card>
+      )}
 
       {structure.id !== "auto" &&
         (stage === "thinking" ||

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { getStructureGroups } from "@/lib/prompts/structures";
+import { saveSource } from "@/lib/prompts/sourceStorage";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 
 export default function Dashboard() {
@@ -12,12 +13,14 @@ export default function Dashboard() {
   const [topic, setTopic] = useState("");
   const [structureId, setStructureId] = useState("auto");
   const [factCheckEnabled, setFactCheckEnabled] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const structureGroups = getStructureGroups(lang);
 
-  const buildSessionUrl = (topicText?: string) => {
-    const params = new URLSearchParams();
-    if (topicText) params.set("topic", topicText);
+  const buildSessionUrl = (extraParams?: Record<string, string>) => {
+    const params = new URLSearchParams(extraParams);
     if (structureId !== "auto") params.set("structure", structureId);
     if (factCheckEnabled) params.set("factcheck", "1");
     const query = params.toString();
@@ -28,7 +31,25 @@ export default function Dashboard() {
 
   const startCustom = () => {
     if (!topic.trim()) return;
-    router.push(buildSessionUrl(topic.trim()));
+    router.push(buildSessionUrl({ topic: topic.trim() }));
+  };
+
+  const handleFileSelected = async (file: File) => {
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("lang", lang);
+      const res = await fetch("/api/extract-source", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || t.dashboard.uploadError);
+      saveSource(data.source);
+      router.push(buildSessionUrl({ source: "1" }));
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : t.dashboard.uploadError);
+      setUploading(false);
+    }
   };
 
   return (
@@ -100,6 +121,33 @@ export default function Dashboard() {
         />
         <Button variant="secondary" onClick={startCustom} disabled={!topic.trim()}>
           {t.dashboard.startWithTopic}
+        </Button>
+      </div>
+
+      <div className="flex w-full max-w-sm flex-col gap-3">
+        <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+          {t.dashboard.orUploadFile}
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            e.target.value = "";
+            if (file) handleFileSelected(file);
+          }}
+        />
+        {uploadError && <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>}
+        <Button
+          variant="secondary"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? t.dashboard.uploading : t.dashboard.uploadFile}
         </Button>
       </div>
     </div>

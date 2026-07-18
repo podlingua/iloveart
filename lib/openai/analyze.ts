@@ -115,7 +115,8 @@ export async function analyzeSpeech(
   transcript: string,
   durationSeconds: number,
   lang: "en" | "es" = "en",
-  targetStructure?: string
+  targetStructure?: string,
+  referenceMaterial?: string
 ): Promise<SpeechAnalysis> {
   const client = getOpenAIClient();
   const wordCount = transcript.trim().split(/\s+/).filter(Boolean).length;
@@ -129,13 +130,17 @@ export async function analyzeSpeech(
       ? "\n\nThe speaker responded in Spanish. Write every text field (main_point_summary, structure_detected, structure_suggested, strongest_skill, biggest_weakness) in Spanish, not English."
       : "";
 
+  const referenceNote = referenceMaterial
+    ? `\n\nThe speaker was explaining specific reference material (a document or photo they uploaded), given below. Use it to judge accuracy as well as communication quality: if their explanation misrepresents, omits something important, or gets something wrong relative to this material, that is likely the biggest_weakness. If they explain it accurately and clearly, that can support strongest_skill. Reference material:\n"""\n${referenceMaterial}\n"""`
+    : "";
+
   const completion = await client.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
-        content: `Prompt duration: ${durationSeconds} seconds. Word count: ${wordCount}.${structureNote}${languageNote}\n\nTranscript:\n"""\n${transcript}\n"""`,
+        content: `Prompt duration: ${durationSeconds} seconds. Word count: ${wordCount}.${structureNote}${languageNote}${referenceNote}\n\nTranscript:\n"""\n${transcript}\n"""`,
       },
     ],
     response_format: { type: "json_schema", json_schema: JSON_SCHEMA },

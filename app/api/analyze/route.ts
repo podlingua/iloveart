@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
   const durationSeconds = body?.durationSeconds;
   const targetStructure =
     typeof body?.targetStructure === "string" ? body.targetStructure : undefined;
+  const referenceMaterial =
+    typeof body?.referenceMaterial === "string" ? body.referenceMaterial : undefined;
   const lang = body?.lang === "es" ? "es" : "en";
 
   if (typeof transcript !== "string" || !transcript.trim()) {
@@ -20,7 +22,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const analysis = await analyzeSpeech(transcript, durationSeconds, lang, targetStructure);
+    const analysis = await analyzeSpeech(
+      transcript,
+      durationSeconds,
+      lang,
+      targetStructure,
+      referenceMaterial
+    );
     const drill = getDrill(analysis.weakness_type, lang);
     return NextResponse.json({ analysis, drill });
   } catch (err) {
