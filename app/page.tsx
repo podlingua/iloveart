@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/Button";
 import { getStructureGroups } from "@/lib/prompts/structures";
 import { saveSource } from "@/lib/prompts/sourceStorage";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useAuth } from "@/lib/supabase/AuthProvider";
 
 export default function Dashboard() {
   const router = useRouter();
   const { lang, t } = useLanguage();
+  const { session } = useAuth();
   const [topic, setTopic] = useState("");
   const [structureId, setStructureId] = useState("auto");
   const [factCheckEnabled, setFactCheckEnabled] = useState(false);
@@ -41,7 +43,10 @@ export default function Dashboard() {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("lang", lang);
-      const res = await fetch("/api/extract-source", { method: "POST", body: formData });
+      const headers: HeadersInit = session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : {};
+      const res = await fetch("/api/extract-source", { method: "POST", body: formData, headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || t.dashboard.uploadError);
       saveSource(data.source);

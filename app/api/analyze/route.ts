@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { analyzeSpeech } from "@/lib/openai/analyze";
 import { getDrill } from "@/lib/drills/templates";
+import { guardRequest, handlePreflight } from "@/lib/security/guard";
+import { RATE_LIMITS } from "@/lib/security/rateLimit";
 
 export const runtime = "nodejs";
 
+export async function OPTIONS(req: NextRequest) {
+  return handlePreflight(req);
+}
+
 export async function POST(req: NextRequest) {
+  const guard = await guardRequest(req, { rateLimit: RATE_LIMITS.analyze });
+  if (guard instanceof NextResponse) return guard;
+  const { headers } = guard;
+
   const body = await req.json().catch(() => null);
   const transcript = body?.transcript;
   const durationSeconds = body?.durationSeconds;
@@ -15,10 +25,13 @@ export async function POST(req: NextRequest) {
   const lang = body?.lang === "es" ? "es" : "en";
 
   if (typeof transcript !== "string" || !transcript.trim()) {
-    return NextResponse.json({ error: "A transcript is required." }, { status: 400 });
+    return NextResponse.json({ error: "A transcript is required." }, { status: 400, headers });
   }
   if (typeof durationSeconds !== "number" || durationSeconds <= 0) {
-    return NextResponse.json({ error: "A valid durationSeconds is required." }, { status: 400 });
+    return NextResponse.json(
+      { error: "A valid durationSeconds is required." },
+      { status: 400, headers }
+    );
   }
 
   try {
@@ -30,10 +43,10 @@ export async function POST(req: NextRequest) {
       referenceMaterial
     );
     const drill = getDrill(analysis.weakness_type, lang);
-    return NextResponse.json({ analysis, drill });
+    return NextResponse.json({ analysis, drill }, { headers });
   } catch (err) {
     console.error("Analysis failed:", err);
     const message = err instanceof Error ? err.message : "Analysis failed. Please try again.";
-    return NextResponse.json({ error: message }, { status: 502 });
+    return NextResponse.json({ error: message }, { status: 502, headers });
   }
 }

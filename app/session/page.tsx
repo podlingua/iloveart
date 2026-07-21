@@ -21,6 +21,8 @@ import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 import { FactCheckResult } from "@/lib/types/factCheck";
 import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 import { Lang, useLanguage } from "@/lib/i18n/LanguageProvider";
+import { useAuth } from "@/lib/supabase/AuthProvider";
+import { extensionForMimeType } from "@/lib/audio/mimeType";
 
 type Stage =
   | "thinking"
@@ -67,11 +69,20 @@ const EMPTY_ATTEMPT: AttemptState = {
   analysis: null,
 };
 
-async function transcribeAudio(blob: Blob, lang: Lang): Promise<string> {
+function authHeaders(accessToken: string | null): HeadersInit {
+  return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
+}
+
+async function transcribeAudio(blob: Blob, lang: Lang, accessToken: string | null): Promise<string> {
   const formData = new FormData();
-  formData.append("audio", blob, "recording.webm");
+  const filename = `recording.${extensionForMimeType(blob.type)}`;
+  formData.append("audio", blob, filename);
   formData.append("lang", lang);
-  const res = await fetch("/api/transcribe", { method: "POST", body: formData });
+  const res = await fetch("/api/transcribe", {
+    method: "POST",
+    body: formData,
+    headers: authHeaders(accessToken),
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Transcription failed.");
   return data.text;
@@ -81,12 +92,13 @@ async function analyzeTranscript(
   transcript: string,
   durationSeconds: number,
   lang: Lang,
+  accessToken: string | null,
   targetStructure?: string,
   referenceMaterial?: string
 ): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
   const res = await fetch("/api/analyze", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ transcript, durationSeconds, targetStructure, referenceMaterial, lang }),
   });
   const data = await res.json();
@@ -94,10 +106,14 @@ async function analyzeTranscript(
   return data;
 }
 
-async function factCheck(transcript: string, lang: Lang): Promise<FactCheckResult> {
+async function factCheck(
+  transcript: string,
+  lang: Lang,
+  accessToken: string | null
+): Promise<FactCheckResult> {
   const res = await fetch("/api/fact-check", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ transcript, lang }),
   });
   const data = await res.json();
@@ -109,11 +125,12 @@ async function compareAttempts(
   attempt1: SpeechAnalysis,
   attempt2: SpeechAnalysis,
   promptText: string,
-  lang: Lang
+  lang: Lang,
+  accessToken: string | null
 ): Promise<ComparisonResult> {
   const res = await fetch("/api/compare", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ attempt1, attempt2, promptText, lang }),
   });
   const data = await res.json();
@@ -173,10 +190,12 @@ function SessionPageInner() {
   );
   const [factCheckResult, setFactCheckResult] = useState<FactCheckResult | null>(null);
   const persistence = useSessionPersistence(prompt);
+  const { session } = useAuth();
+  const accessToken = session?.access_token ?? null;
 
   const runFactCheck = (transcript: string) => {
     setFactCheckStatus("checking");
-    factCheck(transcript, lang)
+    factCheck(transcript, lang, accessToken)
       .then((result) => {
         setFactCheckResult(result);
         setFactCheckStatus("done");
@@ -198,7 +217,7 @@ function SessionPageInner() {
     setErrorMessage(null);
 
     try {
-      const transcript = await transcribeAudio(blob, lang);
+      const transcript = await transcribeAudio(blob, lang, accessToken);
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
@@ -210,6 +229,7 @@ function SessionPageInner() {
         transcript,
         durationSeconds,
         lang,
+        accessToken,
         attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined,
         attemptNumber === 1 ? (referenceMaterial ?? undefined) : undefined
       );
@@ -228,7 +248,8 @@ function SessionPageInner() {
             attempt1.analysis as SpeechAnalysis,
             analysis,
             prompt.text,
-            lang
+            lang,
+            accessToken
           );
           setComparison(result);
           setStage("compared");
@@ -256,6 +277,7 @@ function SessionPageInner() {
         attempt.transcript,
         attempt.durationSeconds,
         lang,
+        accessToken,
         attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined,
         attemptNumber === 1 ? (referenceMaterial ?? undefined) : undefined
       );
@@ -270,7 +292,8 @@ function SessionPageInner() {
           attempt1.analysis as SpeechAnalysis,
           analysis,
           prompt.text,
-          lang
+          lang,
+          accessToken
         );
         setComparison(result);
         setStage("compared");

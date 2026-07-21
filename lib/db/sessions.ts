@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { extensionForMimeType } from "@/lib/audio/mimeType";
 import { ComparisonResult, Drill, SpeechAnalysis } from "@/lib/types/analysis";
 
 export async function createSession(
@@ -18,12 +19,6 @@ export async function createSession(
     .single();
   if (error) throw error;
   return data.id as string;
-}
-
-function extensionForMimeType(mimeType: string): string {
-  if (mimeType.includes("mp4")) return "mp4";
-  if (mimeType.includes("ogg")) return "ogg";
-  return "webm";
 }
 
 export async function uploadRecording(
