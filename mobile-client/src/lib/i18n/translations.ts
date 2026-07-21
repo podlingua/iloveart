@@ -5,6 +5,7 @@ export const en = {
     saveProgress: "Save your progress",
     signIn: "Sign in",
     signOut: "Sign out",
+    account: "Account",
   },
   dashboard: {
     eyebrow: "Speech Coach",
@@ -39,6 +40,10 @@ export const en = {
     backToDashboard: "Back to dashboard",
     startAnotherPrompt: "Start another prompt",
     attempt2Suffix: "— Attempt 2",
+    shareResults: "Share results",
+    remindTomorrow: "Remind me to practice tomorrow",
+    reminderSet: "Reminder set for tomorrow.",
+    reminderUnavailable: "Reminders aren't available on this device.",
   },
   thinkingTimer: {
     prompt: "Take a moment to think about your answer.",
@@ -155,6 +160,20 @@ export const en = {
     alreadyHaveAccount: "Already have an account? Sign in",
     failed: "Saving progress failed.",
   },
+  account: {
+    title: "Account",
+    signedInAs: (email: string) => `Signed in as ${email}.`,
+    anonymousNotice: "You don't have a saved account yet, but your data can still be deleted.",
+    dangerZone: "Danger zone",
+    deleteExplainer:
+      "This permanently deletes your account, every recording, transcript, and analysis. This cannot be undone.",
+    confirmLabel: 'Type "DELETE" to confirm',
+    deleteButton: "Delete my account",
+    deleting: "Deleting…",
+    deleteFailed: "Account deletion failed. Please try again.",
+    deleted: "Your account has been deleted.",
+    needsSupabase: "Account management requires Supabase to be configured.",
+  },
 };
 
 export type Translations = typeof en;
@@ -166,6 +185,7 @@ export const es: Translations = {
     saveProgress: "Guarda tu progreso",
     signIn: "Iniciar sesión",
     signOut: "Cerrar sesión",
+    account: "Cuenta",
   },
   dashboard: {
     eyebrow: "Speech Coach",
@@ -201,6 +221,10 @@ export const es: Translations = {
     backToDashboard: "Volver al panel",
     startAnotherPrompt: "Comenzar otro tema",
     attempt2Suffix: "— Intento 2",
+    shareResults: "Compartir resultados",
+    remindTomorrow: "Recuérdame practicar mañana",
+    reminderSet: "Recordatorio programado para mañana.",
+    reminderUnavailable: "Los recordatorios no están disponibles en este dispositivo.",
   },
   thinkingTimer: {
     prompt: "Tómate un momento para pensar tu respuesta.",
@@ -317,5 +341,19 @@ export const es: Translations = {
     submit: "Guardar progreso",
     alreadyHaveAccount: "¿Ya tienes una cuenta? Inicia sesión",
     failed: "No se pudo guardar el progreso.",
+  },
+  account: {
+    title: "Cuenta",
+    signedInAs: (email: string) => `Sesión iniciada como ${email}.`,
+    anonymousNotice: "Aún no tienes una cuenta guardada, pero tus datos igual pueden eliminarse.",
+    dangerZone: "Zona de peligro",
+    deleteExplainer:
+      "Esto elimina permanentemente tu cuenta, cada grabación, transcripción y análisis. Esto no se puede deshacer.",
+    confirmLabel: 'Escribe "DELETE" para confirmar',
+    deleteButton: "Eliminar mi cuenta",
+    deleting: "Eliminando…",
+    deleteFailed: "No se pudo eliminar la cuenta. Inténtalo de nuevo.",
+    deleted: "Tu cuenta ha sido eliminada.",
+    needsSupabase: "La gestión de la cuenta requiere que Supabase esté configurado.",
   },
 };

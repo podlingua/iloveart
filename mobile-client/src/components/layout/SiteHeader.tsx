@@ -56,6 +56,12 @@ export function SiteHeader() {
             {user && !user.is_anonymous && (
               <>
                 <span className="text-zinc-400">{user.email}</span>
+                <Link
+                  to="/account"
+                  className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                >
+                  {t.header.account}
+                </Link>
                 <button
                   onClick={handleSignOut}
                   className="text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"

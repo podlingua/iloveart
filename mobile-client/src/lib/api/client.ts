@@ -78,6 +78,18 @@ export async function compareAttempts(
   return data.comparison;
 }
 
+export async function deleteAccount(accessToken: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/delete-account"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
+    body: JSON.stringify({ confirm: "DELETE" }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Account deletion failed.");
+  }
+}
+
 export async function extractSource(
   file: File,
   lang: Lang,

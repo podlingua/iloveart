@@ -1,10 +1,12 @@
 
+import { ImpactStyle } from "@capacitor/haptics";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { StructureDiagram } from "@/components/session/StructureDiagram";
 import { MetricsStats } from "@/components/session/MetricsStats";
 import { SpeechAnalysis } from "@/lib/types/analysis";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { hapticImpact } from "@/lib/native/haptics";
 
 interface FeedbackPanelProps {
   analysis: SpeechAnalysis;
@@ -30,13 +32,19 @@ export function FeedbackPanel({ analysis, confirmedMeaning, onConfirm }: Feedbac
           </span>
           <Button
             variant={confirmedMeaning === true ? "primary" : "secondary"}
-            onClick={() => onConfirm(true)}
+            onClick={() => {
+              hapticImpact(ImpactStyle.Light);
+              onConfirm(true);
+            }}
           >
             {t.feedback.yes}
           </Button>
           <Button
             variant={confirmedMeaning === false ? "primary" : "secondary"}
-            onClick={() => onConfirm(false)}
+            onClick={() => {
+              hapticImpact(ImpactStyle.Light);
+              onConfirm(false);
+            }}
           >
             {t.feedback.notExactly}
           </Button>

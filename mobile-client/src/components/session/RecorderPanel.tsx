@@ -1,8 +1,10 @@
 
 import { useEffect, useRef } from "react";
+import { ImpactStyle } from "@capacitor/haptics";
 import { Button } from "@/components/ui/Button";
 import { useRecorder } from "@/hooks/useRecorder";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { hapticImpact } from "@/lib/native/haptics";
 
 function formatTime(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
@@ -37,7 +39,14 @@ export function RecorderPanel({ onRecorded }: RecorderPanelProps) {
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             {t.recorder.upToTime(formatTime(maxSeconds))}
           </p>
-          <Button onClick={start}>{t.recorder.startRecording}</Button>
+          <Button
+            onClick={() => {
+              hapticImpact(ImpactStyle.Medium);
+              start();
+            }}
+          >
+            {t.recorder.startRecording}
+          </Button>
         </>
       )}
 
@@ -58,7 +67,13 @@ export function RecorderPanel({ onRecorded }: RecorderPanelProps) {
       )}
 
       {status === "recording" && (
-        <Button variant="secondary" onClick={stop}>
+        <Button
+          variant="secondary"
+          onClick={() => {
+            hapticImpact(ImpactStyle.Medium);
+            stop();
+          }}
+        >
           {t.recorder.stopRecording}
         </Button>
       )}

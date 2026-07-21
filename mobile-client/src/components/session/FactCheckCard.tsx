@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { FactCheckResult, FactCheckVerdict } from "@/lib/types/factCheck";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
+import { openExternal } from "@/lib/native/openExternal";
 
 const VERDICT_STYLES: Record<FactCheckVerdict, string> = {
   true: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
@@ -63,15 +64,14 @@ export function FactCheckCard({ status, result, onRetry }: FactCheckCardProps) {
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-zinc-400">
                   <span>{t.factCheck.sources}:</span>
                   {claim.sources.map((source, sourceIndex) => (
-                    <a
+                    <button
                       key={sourceIndex}
-                      href={source.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      type="button"
+                      onClick={() => openExternal(source.url)}
                       className="text-zinc-500 underline hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                     >
                       {source.title}
-                    </a>
+                    </button>
                   ))}
                 </div>
               )}

@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Share } from "@capacitor/share";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ProgressSteps } from "@/components/session/ProgressSteps";
@@ -20,6 +21,7 @@ import { useSessionPersistence } from "@/hooks/useSessionPersistence";
 import { useLanguage } from "@/lib/i18n/LanguageProvider";
 import { useAuth } from "@/lib/supabase/AuthProvider";
 import { analyzeTranscript, compareAttempts, factCheck, transcribeAudio } from "@/lib/api/client";
+import { schedulePracticeReminder } from "@/lib/native/practiceReminder";
 
 type Stage =
   | "thinking"
@@ -116,6 +118,7 @@ function SessionPageInner() {
     null
   );
   const [factCheckResult, setFactCheckResult] = useState<FactCheckResult | null>(null);
+  const [reminderMessage, setReminderMessage] = useState<string | null>(null);
   const persistence = useSessionPersistence(prompt);
   const { session } = useAuth();
   const accessToken = session?.access_token ?? null;
@@ -446,6 +449,28 @@ function SessionPageInner() {
       {stage === "compared" && comparison && (
         <>
           <ComparisonView comparison={comparison} />
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              onClick={() =>
+                Share.share({ title: "Speech Coach", text: comparison.summary }).catch(() => {})
+              }
+            >
+              {t.session.shareResults}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={async () => {
+                const ok = await schedulePracticeReminder(24);
+                setReminderMessage(ok ? t.session.reminderSet : t.session.reminderUnavailable);
+              }}
+            >
+              {t.session.remindTomorrow}
+            </Button>
+          </div>
+          {reminderMessage && (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{reminderMessage}</p>
+          )}
           <div className="flex justify-between">
             <Link to="/">
               <Button variant="ghost">{t.session.backToDashboard}</Button>
