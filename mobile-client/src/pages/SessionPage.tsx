@@ -141,13 +141,34 @@ function SessionPageInner() {
     durationSeconds: number,
     attemptNumber: 1 | 2
   ) => {
+    // TEMPORARY diagnostic logging for the stop-recording pipeline - safe to
+    // trim once confirmed fixed on a real device.
+    console.log("[SessionPage] runTranscribeAndAnalyze start", {
+      attemptNumber,
+      durationSeconds,
+      blobType: blob?.type,
+      blobSize: blob?.size,
+      audioUrl: url,
+      hasAccessToken: Boolean(accessToken),
+    });
+
     const setAttempt = attemptNumber === 1 ? setAttempt1 : setAttempt2;
     setAttempt({ audioBlob: blob, audioUrl: url, durationSeconds, transcript: null, analysis: null });
     setStage(attemptNumber === 1 ? "transcribing1" : "transcribing2");
     setErrorMessage(null);
 
     try {
+      if (!blob || blob.size === 0) {
+        throw new Error(
+          `Recorded audio is empty (size=${blob?.size ?? "undefined"}, type=${
+            blob?.type ?? "undefined"
+          }).`
+        );
+      }
+
+      console.log("[SessionPage] calling transcribeAudio()");
       const transcript = await transcribeAudio(blob, lang, accessToken);
+      console.log("[SessionPage] transcribeAudio() succeeded", { transcriptLength: transcript.length });
       setAttempt((prev) => ({ ...prev, transcript }));
       setStage(attemptNumber === 1 ? "analyzing1" : "analyzing2");
 
@@ -155,6 +176,7 @@ function SessionPageInner() {
         runFactCheck(transcript);
       }
 
+      console.log("[SessionPage] calling analyzeTranscript()");
       const { analysis, drill: newDrill } = await analyzeTranscript(
         transcript,
         durationSeconds,
@@ -163,6 +185,7 @@ function SessionPageInner() {
         attemptNumber === 1 && structure.id !== "auto" ? structure.description : undefined,
         attemptNumber === 1 ? (referenceMaterial ?? undefined) : undefined
       );
+      console.log("[SessionPage] analyzeTranscript() succeeded");
       setAttempt((prev) => ({ ...prev, analysis }));
 
       if (attemptNumber === 1) {
@@ -174,6 +197,7 @@ function SessionPageInner() {
       } else {
         setStage("comparing");
         try {
+          console.log("[SessionPage] calling compareAttempts()");
           const result = await compareAttempts(
             attempt1.analysis as SpeechAnalysis,
             analysis,
@@ -181,17 +205,31 @@ function SessionPageInner() {
             lang,
             accessToken
           );
+          console.log("[SessionPage] compareAttempts() succeeded");
           setComparison(result);
           setStage("compared");
           persistence.persistAttempt(2, { blob, durationSeconds, transcript, analysis }).then(() => {
             persistence.persistComparisonAndComplete(result);
           });
         } catch (err) {
+          const e = err as Error;
+          console.error("[SessionPage] compareAttempts() failed", {
+            name: e?.name,
+            message: e?.message,
+            stack: e?.stack,
+          });
           setErrorMessage(err instanceof Error ? err.message : "Comparison failed.");
           setStage("recorded2");
         }
       }
     } catch (err) {
+      const e = err as Error;
+      console.error("[SessionPage] runTranscribeAndAnalyze failed", {
+        attemptNumber,
+        name: e?.name,
+        message: e?.message,
+        stack: e?.stack,
+      });
       setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
       setStage(attemptNumber === 1 ? "recorded1" : "recorded2");
     }

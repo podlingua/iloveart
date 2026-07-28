@@ -9,16 +9,53 @@ function authHeaders(accessToken: string | null): HeadersInit {
   return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 }
 
+// Wraps every fetch() call site so a thrown error (bad URL, network failure,
+// or anything else) is logged with its full name/message/stack before being
+// re-thrown for the caller (SessionPage) to surface in the UI. TEMPORARY
+// diagnostic logging - safe to trim once the stop-recording bug is confirmed
+// fixed on a real device.
+async function loggedFetch(label: string, url: string, init: RequestInit): Promise<Response> {
+  console.log(`[api:${label}] fetching`, { url, method: init.method });
+  try {
+    const res = await fetch(url, init);
+    console.log(`[api:${label}] response`, { url, status: res.status, ok: res.ok });
+    return res;
+  } catch (err) {
+    const e = err as Error;
+    console.error(`[api:${label}] fetch threw`, {
+      url,
+      name: e?.name,
+      message: e?.message,
+      stack: e?.stack,
+    });
+    throw err;
+  }
+}
+
 export async function transcribeAudio(
   blob: Blob,
   lang: Lang,
   accessToken: string | null
 ): Promise<string> {
+  console.log("[transcribeAudio] input blob", { type: blob.type, size: blob.size });
+  if (!blob || blob.size === 0) {
+    throw new Error(
+      `Recorded audio is empty (size=${blob?.size ?? "undefined"}, type=${blob?.type ?? "undefined"}). ` +
+        "The microphone may not have captured any audio."
+    );
+  }
+  if (!blob.type) {
+    console.warn("[transcribeAudio] Blob has no MIME type - falling back to webm extension.");
+  }
+
   const formData = new FormData();
   const filename = `recording.${extensionForMimeType(blob.type)}`;
+  console.log("[transcribeAudio] filename", filename);
   formData.append("audio", blob, filename);
   formData.append("lang", lang);
-  const res = await fetch(apiUrl("/api/transcribe"), {
+
+  const url = apiUrl("/api/transcribe");
+  const res = await loggedFetch("transcribe", url, {
     method: "POST",
     body: formData,
     headers: authHeaders(accessToken),
@@ -36,7 +73,8 @@ export async function analyzeTranscript(
   targetStructure?: string,
   referenceMaterial?: string
 ): Promise<{ analysis: SpeechAnalysis; drill: Drill }> {
-  const res = await fetch(apiUrl("/api/analyze"), {
+  const url = apiUrl("/api/analyze");
+  const res = await loggedFetch("analyze", url, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ transcript, durationSeconds, targetStructure, referenceMaterial, lang }),
@@ -51,7 +89,8 @@ export async function factCheck(
   lang: Lang,
   accessToken: string | null
 ): Promise<FactCheckResult> {
-  const res = await fetch(apiUrl("/api/fact-check"), {
+  const url = apiUrl("/api/fact-check");
+  const res = await loggedFetch("factCheck", url, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ transcript, lang }),
@@ -68,7 +107,8 @@ export async function compareAttempts(
   lang: Lang,
   accessToken: string | null
 ): Promise<ComparisonResult> {
-  const res = await fetch(apiUrl("/api/compare"), {
+  const url = apiUrl("/api/compare");
+  const res = await loggedFetch("compare", url, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ attempt1, attempt2, promptText, lang }),
@@ -79,7 +119,8 @@ export async function compareAttempts(
 }
 
 export async function deleteAccount(accessToken: string): Promise<void> {
-  const res = await fetch(apiUrl("/api/delete-account"), {
+  const url = apiUrl("/api/delete-account");
+  const res = await loggedFetch("deleteAccount", url, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders(accessToken) },
     body: JSON.stringify({ confirm: "DELETE" }),
@@ -98,7 +139,8 @@ export async function extractSource(
   const formData = new FormData();
   formData.append("file", file);
   formData.append("lang", lang);
-  const res = await fetch(apiUrl("/api/extract-source"), {
+  const url = apiUrl("/api/extract-source");
+  const res = await loggedFetch("extractSource", url, {
     method: "POST",
     body: formData,
     headers: authHeaders(accessToken),

@@ -74,15 +74,45 @@ export function useRecorder() {
       };
 
       recorder.onstop = () => {
-        clearTimer();
-        const blob = new Blob(chunksRef.current, {
-          type: recorder.mimeType || "audio/webm",
+        console.log("[useRecorder] onstop fired", {
+          chunkCount: chunksRef.current.length,
+          recorderMimeType: recorder.mimeType,
         });
-        setAudioBlob(blob);
-        setAudioUrl(URL.createObjectURL(blob));
-        setStatus("stopped");
-        streamRef.current?.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
+        clearTimer();
+        try {
+          const blob = new Blob(chunksRef.current, {
+            type: recorder.mimeType || "audio/webm",
+          });
+          console.log("[useRecorder] blob created", { type: blob.type, size: blob.size });
+
+          if (blob.size === 0) {
+            throw new Error(
+              "Recorded Blob has zero bytes - no audio data was captured before stop() was called."
+            );
+          }
+          if (!blob.type) {
+            console.warn("[useRecorder] Blob has no MIME type set.");
+          }
+
+          const url = URL.createObjectURL(blob);
+          console.log("[useRecorder] object URL created", url);
+
+          setAudioBlob(blob);
+          setAudioUrl(url);
+          setStatus("stopped");
+        } catch (err) {
+          const e = err as Error;
+          console.error("[useRecorder] onstop failed", {
+            name: e?.name,
+            message: e?.message,
+            stack: e?.stack,
+          });
+          setStatus("error");
+          setError(e?.message || "Recording failed to finalize.");
+        } finally {
+          streamRef.current?.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
       };
 
       recorder.start();
