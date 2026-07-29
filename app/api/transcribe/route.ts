@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB, well above a 2-minute clip
 

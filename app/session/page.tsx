@@ -67,14 +67,24 @@ const EMPTY_ATTEMPT: AttemptState = {
   analysis: null,
 };
 
+async function parseJsonResponse(res: Response, fallbackError: string) {
+  let data: { error?: string; [key: string]: unknown };
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(fallbackError);
+  }
+  if (!res.ok) throw new Error(data.error || fallbackError);
+  return data;
+}
+
 async function transcribeAudio(blob: Blob, lang: Lang): Promise<string> {
   const formData = new FormData();
   formData.append("audio", blob, "recording.webm");
   formData.append("lang", lang);
   const res = await fetch("/api/transcribe", { method: "POST", body: formData });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Transcription failed.");
-  return data.text;
+  const data = await parseJsonResponse(res, "Transcription failed.");
+  return data.text as string;
 }
 
 async function analyzeTranscript(
@@ -89,9 +99,8 @@ async function analyzeTranscript(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ transcript, durationSeconds, targetStructure, referenceMaterial, lang }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Analysis failed.");
-  return data;
+  const data = await parseJsonResponse(res, "Analysis failed.");
+  return data as unknown as { analysis: SpeechAnalysis; drill: Drill };
 }
 
 async function factCheck(transcript: string, lang: Lang): Promise<FactCheckResult> {
@@ -100,9 +109,8 @@ async function factCheck(transcript: string, lang: Lang): Promise<FactCheckResul
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ transcript, lang }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Fact-check failed.");
-  return data.factCheck;
+  const data = await parseJsonResponse(res, "Fact-check failed.");
+  return data.factCheck as FactCheckResult;
 }
 
 async function compareAttempts(
@@ -116,9 +124,8 @@ async function compareAttempts(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ attempt1, attempt2, promptText, lang }),
   });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || "Comparison failed.");
-  return data.comparison;
+  const data = await parseJsonResponse(res, "Comparison failed.");
+  return data.comparison as ComparisonResult;
 }
 
 export default function SessionPage() {

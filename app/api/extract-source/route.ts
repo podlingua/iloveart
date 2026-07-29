@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractSource } from "@/lib/openai/extractSource";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 const MAX_UPLOAD_BYTES = 15 * 1024 * 1024; // 15MB
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "application/pdf"];
